@@ -1,0 +1,7 @@
+__pycache__/
+.venv/
+.pytest_cache/
+node_modules/
+.DS_Store
+.idea/
+_site/

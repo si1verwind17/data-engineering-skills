@@ -1,0 +1,7 @@
+# Helm values for the Airflow chart on the shop-data EKS cluster
+executor: KubernetesExecutor
+dags:
+  gitSync:
+    enabled: true
+    repo: git@example.com:shop/shop-data-platform.git
+    subPath: dags

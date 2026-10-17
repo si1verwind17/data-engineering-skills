@@ -1,0 +1,4 @@
+# Helm values for Superset on the shop-data EKS cluster; dashboards query Athena (workgroup "analytics")
+configOverrides:
+  athena: |
+    SQLALCHEMY_EXAMPLES_URI = None

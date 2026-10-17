@@ -1,0 +1,11 @@
+name: clinic_analytics
+version: "1.0.0"
+config-version: 2
+profile: clinic_analytics
+model-paths: ["models"]
+macro-paths: ["macros"]
+models:
+  clinic_analytics:
+    staging: { +schema: staging, +materialized: view }
+    marts: { +schema: marts, +materialized: table }
+    exports: { +schema: exports, +materialized: table }

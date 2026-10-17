@@ -1,0 +1,36 @@
+{
+  "name": "data-engineering-skills",
+  "owner": {
+    "name": "si1verwind17"
+  },
+  "metadata": {
+    "description": "Agent skills for data engineering: designing analytics data platforms, and building the pipelines that feed them.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "data-engineering",
+      "source": "./",
+      "strict": false,
+      "description": "Designs and reviews analytics data platforms (tier and tool choice, ingestion method, serving, sensitive-data decisions, erasure design) and builds their pipelines in the repo: dead letters and version-guarded redrive, tombstones, CDC traps, reruns and backfill, keyed pseudonyms, erasure jobs, and cheap checks after every load.",
+      "version": "1.0.0",
+      "author": {
+        "name": "si1verwind17"
+      },
+      "license": "MIT",
+      "keywords": [
+        "data-engineering",
+        "data-platform",
+        "lakehouse",
+        "warehouse",
+        "cdc",
+        "privacy"
+      ],
+      "category": "development",
+      "skills": [
+        "./skills/designing-data-platforms",
+        "./skills/building-data-pipelines"
+      ]
+    }
+  ]
+}

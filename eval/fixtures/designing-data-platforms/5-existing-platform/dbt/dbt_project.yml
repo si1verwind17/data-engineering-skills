@@ -1,0 +1,9 @@
+name: shop
+profile: shop_athena
+models:
+  shop:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table
+      +table_type: iceberg
