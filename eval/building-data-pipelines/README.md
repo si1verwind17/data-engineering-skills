@@ -19,9 +19,7 @@ Runs get Bash as well as the usual tools, because the work includes running the 
 
 ## Pending validation
 
-- 6d812bf: dead letters only where the source cannot be re-read, a stream blocks, or a high-volume load expects bad
-  records; a rerunnable batch fails the run. Checks 7 and 9 of scenario 1 changed. Validates: scenario 1 skill arm
-  (5 runs) and control (3 runs, checks changed); scenarios 2 and 3 skill arm.
+None.
 
 ## Latest results
 
@@ -30,10 +28,10 @@ evaluated.
 
 | Scenario | Skill@ | Arm | Result | Notes |
 |---|---|---|---|---|
-| 1 | a68c38e | skill | 55/55 (5 runs) | every run captures deletes by key, dead-letters with source position, and tests a replayed delete; at 4e912f2, before the Scope sentence on data-loss gaps, two of three runs deferred deletes (22/33) |
-| 2 | a68c38e | skill | 21/21 (3 runs); variant A 6/6 at 4e912f2 | heartbeat written on the primary and slot loss on rebuild named in every run |
-| 3 | a68c38e | skill | 27/27 (3 runs) | erasure verified once per request, joined to the request table, in every run |
-| 1 | — | control | 11/33 (3 runs) | no dead letters, deletes left unhandled, no shared lock with the manual DAG, core table dropped and recreated, no tests |
+| 1 | 206f0d9 | skill | 53/55 (5 runs) | every run fails the run on a bad row naming the keys, sets the failure email in code and adds no dead-letter table; captures deletes by key and tests a replayed delete; two replies ask who owns the alert instead of proposing one |
+| 2 | 6d812bf | skill | 21/21 (3 runs); variant A 6/6 at 4e912f2 | CDC dead letters with LSN still built and tested; heartbeat written on the primary and slot loss on rebuild named in every run |
+| 3 | 206f0d9 | skill | 24/27 (3 runs) | misses: alert owners left to the user (2), erasure closed on a check that reads only raw (1) |
+| 1 | — | control | 10/33 (3 runs) | deletes left unhandled, no shared lock with the manual DAG, core table dropped and recreated, no alerts, no tests |
 | 2 | — | control | 17/21 (3 runs) | heartbeat interval only on a read-only replica; slot loss on replica rebuild never named |
 | 3 | — | control | 9/27 (3 runs) | salted SHA-256 with the key rendered into SQL, raw identifiers left in staging, no fail-safe in the deadline, no zero-match check |
 

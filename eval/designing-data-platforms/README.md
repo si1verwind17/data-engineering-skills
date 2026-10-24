@@ -17,9 +17,7 @@ reruns, compaction, late-data windows and more).
 
 ## Pending validation
 
-- 6d812bf: same rule for designs; the Pipeline diagram draws a dead letter only where a source has one. Check 3 of
-  scenario 2 and the Pipeline check of scenarios 1–3 changed. Validates: scenario 2 skill and control arms; scenarios
-  1, 3 and 5 skill arm.
+None.
 
 ## Latest results
 
@@ -28,13 +26,13 @@ evaluated.
 
 | Scenario | Skill@ | Arm | Result | Notes |
 |---|---|---|---|---|
-| 1 | e6ce8de | skill | 30/33 (3 runs) | one run passes all 11; misses: a replica box without a named tool (2), one line of process wording |
-| 2 | e6ce8de | skill | 43/45 (3 runs) | one run passes all 15; misses: an unfixed SaaS cadence, one diagram detail |
-| 3 | e6ce8de | skill | 34/36 (3 runs) | one run passes all 12 |
+| 1 | 6d812bf | skill | 29/33 (3 runs) | every run fails the run for the re-readable databases; click events dead-lettered with a reject threshold in one; misses: boxes without a named tool (2), a hosting boundary drawn round unknown hosting, a generic verification list |
+| 2 | 6d812bf | skill | 43/45 (3 runs) | one run passes all 15; every run dead-letters only the CDC stream and fails the run for both batch sources; misses: `current-platform.md` not written (2) |
+| 3 | 6d812bf | skill | 34/36 (3 runs) | two runs pass all 12; misses: a load arrow drawn right to left, one line of process wording |
 | 4 | 9eb3496 | skill | 36/39 (3 runs) | each run misses one: a leaked question number or the skill's own wording (2), one tier remark; no pseudonym computed by a per-row KMS call |
-| 5 | e6ce8de | skill | 18/18 (3 runs) + variant A pass; variant B 3/3 at a2af0ab | variant B at e6ce8de overwrote the stale record; fixed by keeping the record until the user answers |
+| 5 | 6d812bf | skill | 18/18 (3 runs); variant A pass at e6ce8de; variant B 3/3 at a2af0ab | variant B at e6ce8de overwrote the stale record; fixed by keeping the record until the user answers |
 | 1 | — | control | 0/33 (3 runs) | no simpler tier weighed, hedged layers, no diagrams or build steps |
-| 2 | — | control | 6/45 (3 runs) | no slot placement, dead letters or backfill; connector settings in the design |
+| 2 | — | control | 9/45 (3 runs) | no diagrams, inventory or build steps; no backfill beside CDC; SQL and settings in the design; two of three fail the batch run and quarantine the stream |
 | 3 | — | control | 12/36 (3 runs) | app writes its own table, no format version, no current-platform record |
 | 4 | — | control | 11/39 (3 runs) | key deletion as erasure, no suppression list, no fail-safe in the deadline |
 | 5 | — | control | 8/18 (3 runs) | no current-platform record, nothing marked new |
