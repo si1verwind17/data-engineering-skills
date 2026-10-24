@@ -26,13 +26,13 @@ evaluated.
 
 | Scenario | Skill@ | Arm | Result | Notes |
 |---|---|---|---|---|
-| 1 | 6d812bf | skill | 29/33 (3 runs) | every run fails the run for the re-readable databases; click events dead-lettered with a reject threshold in one; misses: boxes without a named tool (2), a hosting boundary drawn round unknown hosting, a generic verification list |
-| 2 | 6d812bf | skill | 43/45 (3 runs) | one run passes all 15; every run dead-letters only the CDC stream and fails the run for both batch sources; misses: `current-platform.md` not written (2) |
-| 3 | 6d812bf | skill | 34/36 (3 runs) | two runs pass all 12; misses: a load arrow drawn right to left, one line of process wording |
-| 4 | 9eb3496 | skill | 36/39 (3 runs) | each run misses one: a leaked question number or the skill's own wording (2), one tier remark; no pseudonym computed by a per-row KMS call |
-| 5 | 6d812bf | skill | 18/18 (3 runs); variant A pass at e6ce8de; variant B 3/3 at a2af0ab | variant B at e6ce8de overwrote the stale record; fixed by keeping the record until the user answers |
-| 1 | — | control | 0/33 (3 runs) | no simpler tier weighed, hedged layers, no diagrams or build steps |
-| 2 | — | control | 9/45 (3 runs) | no diagrams, inventory or build steps; no backfill beside CDC; SQL and settings in the design; two of three fail the batch run and quarantine the stream |
+| 1 | a0ce040 | skill | 32/36 (3 runs) | every engine feature relied on sits in a verify-before-building list; misses: a self-hosted BI tool drawn inside a managed-services boundary (2), questions placed before the Decision |
+| 2 | c5358ff | skill | 42/45 (3 runs) | one run passes all 15; a replica slot gets a recovery that does not write to the replica; misses: process wording (2), a batch path that fails without an alert |
+| 3 | a0ce040 | skill | 34/36 (3 runs) | one run passes all 12; misses: a store drawn once with arrows looping back into it (2) |
+| 4 | a0ce040 | skill | 37/39 (3 runs) | one run passes all 13; misses: the SHA-256 masking rule not named, a second diagram without labelled arrows |
+| 5 | c5358ff | skill | 19/21 (3 runs, checks 1–6 and 9); variant A pass at e6ce8de; variant B 3/3 at a2af0ab | misses (one run): a component without its repo file, the connector's heartbeat query stated as writing on the primary |
+| 1 | — | control | 3/36 (3 runs) | free-form essays with no diagrams or verification list; CDC from a replica and Firehose into streaming ingestion presented as settled |
+| 2 | — | control | 9/45 (3 runs) | no diagrams, inventory or build steps; snapshot loaded before streaming instead of beside it; SQL and settings in the design |
 | 3 | — | control | 12/36 (3 runs) | app writes its own table, no format version, no current-platform record |
 | 4 | — | control | 11/39 (3 runs) | key deletion as erasure, no suppression list, no fail-safe in the deadline |
-| 5 | — | control | 8/18 (3 runs) | no current-platform record, nothing marked new |
+| 5 | — | control | 12/21 (3 runs) | no current-platform record, nothing marked new, no failover, WAL cap or dead letters |
