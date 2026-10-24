@@ -45,15 +45,18 @@ request; never ask for a design document or write one.
    limit and the options and ask once; for a change that needs a platform
    design rather than code, say the `designing-data-platforms` skill fits.
 3. **Build.** Make the change in what the repo already uses — its
-   orchestrator, its transform tool, its alerting; add no new tool. Then
+   orchestrator, its transform tool, its alerting; add no new tool. Before
+   relying on an engine function, its argument form, or a connector option,
+   check the vendor's current docs for what it accepts and whether it is
+   deprecated; when you cannot look it up, say so in the handover. Then
    self-review against the area file's checklist.
 4. **Verify.** Two parts, below: a test before deploy where one can run, and
    checks that run with the pipeline after deploy.
 5. **Hand over.** Only what the diff cannot show: what was not verified;
    manual steps the code cannot do (create a replication slot, set a
-   database parameter, deploy order); each alert to wire with an owner
-   named by role (the team on call for this pipeline) for the user to
-   confirm, never "someone"; risks that remain (what loses data if it
+   database parameter, deploy order); each alert to wire with the owner
+   you propose by role (the team on call for this pipeline) for the user to
+   confirm — asking who owns it is not proposing one, nor is "someone"; risks that remain (what loses data if it
    happens, and how to recover); owner questions. Leave out empty parts.
 
 **Never say "verified", "tested" or "works" about something that was not

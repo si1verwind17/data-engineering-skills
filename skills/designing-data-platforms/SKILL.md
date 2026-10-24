@@ -96,6 +96,13 @@ When you cannot tell whether a request is entangled, ask.
 `reporting-platform.md`, `orders-cdc.md`), unless the user names another
 path. Markdown is the source of truth. Sections and order: `document.md`.
 
+**Check every engine feature the design relies on** — a function, a UDF
+language, a connector or sink, a managed-service capability — against the
+vendor's current docs for support and deprecation before the design depends
+on it; the snapshot in these files is a starting point, not proof. Without
+web access, put each in the doc's verify-before-building list (under Why, or
+Open questions when Why has no verification part), not stated as settled.
+
 **The doc stands alone.** Readers never see these files: state each rule's
 reason in the doc itself, define any term you use, and never cite these
 files or their snapshot as a source.

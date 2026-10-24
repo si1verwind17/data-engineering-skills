@@ -40,5 +40,8 @@ A new platform on AWS: the tier and one tool per layer, replica first, a verifie
 9. **Pipeline**: a pipeline diagram of jobs and tables (jobs with how often they run, tables by layer, failures to a dead-letter table where a source has one), or one sentence where a source's whole path is a single job the architecture already shows.
 10. **Build steps**: numbered, design level (no code or commands), each saying what it delivers.
 11. **No process narration**: the document never describes how it was produced ("non-interactive", "this run", "taken as given") or mentions the skill or its files.
+12. **Engine features checked**: no function, UDF language, connector or managed-service feature the design relies on
+   is presented as settled when the vendor's current docs list it as unsupported, deprecated or community-only;
+   unconfirmed ones sit in a verify-before-building list. The judge looks each one up.
 
 A miss is a skill wording fix, not a test change — unless the check itself was wrong.

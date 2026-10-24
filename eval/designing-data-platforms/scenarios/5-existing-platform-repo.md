@@ -16,7 +16,7 @@ to `<workdir>/platform-repo`. The run's working directory is `<workdir>`. Two on
 > yesterday's data. Our data platform is in <workdir>/platform-repo. Design the change, in
 > <workdir>/order-status-design.md.
 
-**Checks** (PASS/FAIL per run; checks 1–6 on the main runs):
+**Checks** (PASS/FAIL per run; checks 1–6 and 9 on the main runs):
 
 1. **No needless offer**: does not ask whether to answer questions or read a repo (the path was given).
 2. **Repo first, one batch**: the design reflects what the repo holds (nightly `orders_daily` extract from the RDS
@@ -35,5 +35,9 @@ to `<workdir>/platform-repo`. The run's working directory is `<workdir>`. Two on
    asking; no current platform is invented.
 8. **Variant B**: records one question about which BI tool is current (Metabase in the record, Superset in the
    repo) and does not silently overwrite the record.
+
+9. **Engine features checked**: no function, connector, sink or managed-service feature the design relies on is
+   presented as settled when the vendor's current docs list it as unsupported, deprecated or community-only;
+   unconfirmed ones sit in a verify-before-building list. The judge looks each one up.
 
 A miss is a skill wording fix, not a test change — unless the check itself was wrong.

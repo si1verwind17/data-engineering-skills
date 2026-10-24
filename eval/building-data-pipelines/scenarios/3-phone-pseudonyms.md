@@ -23,11 +23,14 @@ to `<workdir>/repo`.
    read only the run's slice, small tables or metadata — no full scan of an incremental target on every load (a
    table rebuilt in full each run may be tested whole: the rebuild already reads it all).
 6. **Keyed pseudonym**: an HMAC (or tokenization) with a managed key read at run time — not `SHA256`,
-   `FARM_FINGERPRINT`, `MD5` or a salted plain hash, and the key never rendered into compiled SQL or job history.
+   `FARM_FINGERPRINT`, `MD5` or a salted plain hash, and the raw key never rendered into compiled SQL or job history (a KMS-wrapped keyset may be).
 7. **Raw identifiers restricted**: raw phone and national ID live only in a restricted dataset or table (with its
    access set in code or as a named manual step), and staging and marts carry the pseudonym.
 8. **Erasure deadline**: the erasure job's deadline accounts for BigQuery time travel plus fail-safe (about 14 days).
 9. **Zero-match check**: erasure closes a request only after a check finds no remaining rows on the identifier
    columns.
+10. **Documented keyset form**: where `KEYS.KEYSET_CHAIN` is used, the wrapped keyset is passed as a query
+    parameter, a script variable or a BYTES literal — not an inline `FROM_BASE64(...)` or a subquery, which the
+    BigQuery reference does not document (its arguments are literals).
 
 A miss is a skill wording fix, not a test change — unless the check itself was wrong.

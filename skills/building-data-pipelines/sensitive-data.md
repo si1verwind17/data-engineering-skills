@@ -15,7 +15,12 @@ when neither says.
   text: a literal or a templated variable (dbt `var`, `env_var`) lands in the
   compiled SQL and the query history. In BigQuery, use a KMS-wrapped keyset
   (`KEYS.KEYSET_CHAIN` with `DETERMINISTIC_ENCRYPT`), or compute the
-  pseudonym upstream in code that reads the key from a secret manager. A
+  pseudonym upstream in code that reads the key from a secret manager.
+  `KEYSET_CHAIN` takes literals: pass the wrapped keyset as a query
+  parameter, a script variable, or a `b'...'` BYTES literal (print it once
+  with `FORMAT('%T', FROM_BASE64(...))`) — an inline `FROM_BASE64(...)` or
+  subquery is not a documented form. The wrapped keyset may appear in SQL
+  text: it is useless without permission on the KMS key, unlike a raw key. A
   plain hash of a phone number or national ID is brute-forceable in minutes — including BigQuery's built-in SHA-256 masking rule,
   `SHA256()`, `FARM_FINGERPRINT()` and `MD5()`. Normalize the value before
   hashing (E.164 for phones, trimmed and upper-cased IDs) so joins match.
