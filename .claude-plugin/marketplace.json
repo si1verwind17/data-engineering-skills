@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Agent skills for data engineering: designing analytics data platforms, and building the pipelines that feed them.",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "source": "./",
       "strict": false,
       "description": "Designs and reviews analytics data platforms (tier and tool choice, ingestion method, serving, sensitive-data decisions, erasure design) and builds their pipelines in the repo: dead letters and version-guarded redrive, tombstones, CDC traps, reruns and backfill, keyed pseudonyms, erasure jobs, and cheap checks after every load.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": {
         "name": "si1verwind17"
       },
