@@ -17,7 +17,11 @@ A logical replication slot is the server-side bookmark CDC reads from.
   promoted standby has no copy, and recreating it risks a gap and forces a
   re-snapshot. PG17+ failover slots keep it, with settings on both servers.
   A slot on a read replica stays when that replica is promoted; its risk is
-  the replica being replaced or rebuilt.
+  the replica being replaced or rebuilt. Recovery from that cannot write to
+  the replica: a read-only incremental snapshot where the connector supports
+  one on a standby (chunked, beside the stream), otherwise a full
+  re-snapshot that re-reads every captured table with streaming held back.
+  Name which, and its cost.
 - **No source that can decode** (no logical replication allowed, a managed
   service that hides it): fall back to a batch poll with a periodic key
   compare for deletes ([`ingestion.md`](ingestion.md)), and say what
@@ -53,4 +57,5 @@ the settings belong in the build:
   same version guard, never a separate bulk load over newer rows.
 
 In a design review, a slot on an Aurora reader, a slot on a pre-17 primary
-with no failover answer, or no WAL cap and lag alert are gaps.
+with no failover answer, a replica slot whose recovery writes to the replica,
+or no WAL cap and lag alert are gaps.

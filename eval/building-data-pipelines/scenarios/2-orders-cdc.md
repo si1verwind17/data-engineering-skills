@@ -24,7 +24,12 @@ says to capture from the reader).
    primary (scheduled write to a heartbeat table in the publication), not only a heartbeat interval.
 7. **Slot loss named**: the reply or config says the slot is lost when the replica is rebuilt or replaced (forcing a
    re-snapshot) and what to do then.
-8. **Variant A (Aurora; one run, graded with checks 1–5 instead of 6–7)**: states that an Aurora PostgreSQL reader cannot host a logical slot, gives the options
+9. **Recovery needs no writes on the replica**: the recovery the run sets up or names works against the read-only
+   replica — a read-only incremental snapshot (no signal-table watermark writes) over a channel that does not write,
+   or a full re-snapshot with its cost stated. A default incremental snapshot through a signal table, which writes
+   watermarks over the connector's replica connection, fails this check even when the signal row is inserted on the
+   primary.
+8. **Variant A (Aurora; one run, graded with checks 1–5 instead of 6, 7 and 9)**: states that an Aurora PostgreSQL reader cannot host a logical slot, gives the options
    (slot on the writer, or change the design), asks once, and points no connector at the reader.
 
 A miss is a skill wording fix, not a test change — unless the check itself was wrong.

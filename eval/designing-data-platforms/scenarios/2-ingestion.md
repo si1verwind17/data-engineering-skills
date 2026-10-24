@@ -27,7 +27,8 @@ Ingestion only: failure handling, bad records and dead letters, redrive, deletes
    long transactions an `updated_at` poll misses); batch for the document database (no CDC in their tooling) with a
    delete capture beside it; the SaaS API re-reads its 30-day editable window each run.
 2. **CDC feasibility and slot placement**: where the replication slot lives (primary or a read replica, with the
-   PostgreSQL version it needs) and what happens to it on failover or replica rebuild.
+   PostgreSQL version it needs) and what happens to it on failover or replica rebuild; a slot on a replica gets a
+   recovery that does not write to the replica (a read-only incremental snapshot, or a full re-snapshot with its cost).
 3. **Bad-record path per source**: `orders` (CDC, where one bad event would block the rest) has a dead-letter
    table with an alert and an owner, drawn in the Pipeline diagram; the batch sources that can be read again
    (document database, SaaS API window) fail the run on a bad record with an alert, or give a reason for a dead

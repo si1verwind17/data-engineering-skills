@@ -66,6 +66,23 @@ Check before writing connector config; a wrong source is not fixed by config.
 - Use incremental snapshots (`execute-snapshot` signal, chunked, runs beside
   streaming, resumable; needs a primary key or surrogate key) rather than a
   separate bulk load.
+- **On a read replica, the recovery must not write to the database.** The
+  default incremental snapshot writes its watermark rows into the signal
+  table over the connector's own connection — the read-only replica — so it
+  fails there, even when the signal row itself is inserted on the primary.
+  Use a read-only incremental snapshot (`read.only=true`; it takes its
+  watermarks from the server's transaction snapshot and needs no signal
+  table), triggered over a channel that does not write: a signal file
+  (Debezium Server), a Kafka topic or JMX (Kafka Connect). Where the
+  connector version cannot do that on a standby, fall back to a full
+  re-snapshot (`snapshot.mode=when_needed`): it needs no signal, but
+  re-reads every captured table with streaming held back, and sends the
+  rows again — the version guard absorbs them. As of 2026-10, Debezium
+  supports the read-only snapshot on a hot standby from 3.7.0; check the
+  connector's current docs before relying on it.
+- Writes the replica cannot take — the heartbeat, `pg_log_standby_snapshot()`
+  to speed up slot creation on an idle primary — run as a separate job on
+  the primary.
 - Any backfill writes through the same version guard as the stream, so it
   can never overwrite a newer streamed row, and is throttled against the
   source.
@@ -81,4 +98,5 @@ Check before writing connector config; a wrong source is not fixed by config.
 - Backfill through the stream's version guard, throttled?
 - Does the handover name the slot-loss cases (replica rebuilt or replaced,
   failover, WAL cap exceeded), that each forces a re-snapshot, and how to
-  run it (incremental snapshot)?
+  run it (incremental snapshot — read-only when the slot is on a replica —
+  or a full re-snapshot), with the recovery wired in config, not only named?
