@@ -8,9 +8,12 @@ survives the records that fail.
   the run or go to a dead-letter table:
   - **Fail the run** — the default for a batch whose source can be read
     again (a table, files that stay in place, an API window still
-    editable). Name the bad keys and the error in the failure and alert;
-    the source still holds the records, so fixing the cause and rerunning
-    the period recovers them. A bad record here usually means the source's
+    editable). Validate before writing and raise with the bad keys and the
+    error, not a bare database exception. Wire the failure alert in code,
+    in what the repo already uses (an on-failure callback or failure email
+    in the DAG's defaults) — a failed run nobody hears about is a stalled
+    pipeline. The source still holds the records, so fixing the cause and
+    rerunning the period recovers them. A bad record here usually means the source's
     contract changed, which should stop the load, not be set aside.
   - **Dead-letter table** — when the source cannot be read again (a topic
     past retention, an expiring cursor, a push or webhook), when one record
