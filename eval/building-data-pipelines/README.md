@@ -19,7 +19,9 @@ Runs get Bash as well as the usual tools, because the work includes running the 
 
 ## Pending validation
 
-None.
+- 6d812bf: dead letters only where the source cannot be re-read, a stream blocks, or a high-volume load expects bad
+  records; a rerunnable batch fails the run. Checks 7 and 9 of scenario 1 changed. Validates: scenario 1 skill arm
+  (5 runs) and control (3 runs, checks changed); scenarios 2 and 3 skill arm.
 
 ## Latest results
 

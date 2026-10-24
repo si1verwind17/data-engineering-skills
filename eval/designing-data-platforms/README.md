@@ -17,7 +17,9 @@ reruns, compaction, late-data windows and more).
 
 ## Pending validation
 
-None.
+- 6d812bf: same rule for designs; the Pipeline diagram draws a dead letter only where a source has one. Check 3 of
+  scenario 2 and the Pipeline check of scenarios 1–3 changed. Validates: scenario 2 skill and control arms; scenarios
+  1, 3 and 5 skill arm.
 
 ## Latest results
 
