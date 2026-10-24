@@ -117,9 +117,9 @@ flowchart LR
   Transform · Target tables`, then the users.
 - Jobs are rounded boxes with how often they run (`(["Poll job<br/><i>hourly</i>"])`);
   tables are cylinders named with their layer (`raw.orders`, `core.orders`).
-- Every pipeline diagram shows where records that fail go: a dead-letter
-  table (or a quarantine table, for late or invalid rows) on dotted edges
-  (`-.->`).
+- Where a source has a dead-letter table (or a quarantine table, for late
+  or invalid rows), the pipeline diagram draws it on dotted edges (`-.->`).
+  A source that fails the run on a bad record draws none.
 
 ```mermaid
 ---

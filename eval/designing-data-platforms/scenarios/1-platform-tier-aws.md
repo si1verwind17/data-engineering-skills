@@ -37,7 +37,7 @@ A new platform on AWS: the tier and one tool per layer, replica first, a verifie
    inventory, then questions and assumptions and open questions.
 7. **Top of document**: opens with a plain-words Decision (what gets built, what does not), then the Architecture diagram — nothing (questions, tier essay, tables) before them.
 8. **Architecture rules**: the diagram reads left to right from sources to users; every data arrow points the way data moves and is labelled with the action; boxes give tool and role; boundaries show where things run, drawn only where the hosting is stated.
-9. **Pipeline**: a pipeline diagram of jobs and tables (jobs with how often they run, tables by layer, failures to a dead-letter table), or one sentence where a source's whole path is a single job the architecture already shows.
+9. **Pipeline**: a pipeline diagram of jobs and tables (jobs with how often they run, tables by layer, failures to a dead-letter table where a source has one), or one sentence where a source's whole path is a single job the architecture already shows.
 10. **Build steps**: numbered, design level (no code or commands), each saying what it delivers.
 11. **No process narration**: the document never describes how it was produced ("non-interactive", "this run", "taken as given") or mentions the skill or its files.
 

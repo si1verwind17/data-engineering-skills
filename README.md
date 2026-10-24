@@ -10,9 +10,10 @@ SCD2, compaction, late data. These skills hold only what agents without them got
 - **A decision, not a menu** (design). The smallest tier that fits is weighed first (a read replica before any
   pipeline), then one tool per layer, each with its alternative and the condition that would switch to it, and a
   check that the chosen versions work together.
-- **Ingestion that survives failure** (build). Dead letters that keep the payload and source position, redrive
-  guarded by source version so old data never overwrites new, deletes kept as tombstones, the CDC traps that bite in
-  production, batch runs that can be rerun for any period, and backfills that run alongside live capture.
+- **Ingestion that survives failure** (build). Bad records that fail a rerunnable batch loudly, dead letters that
+  keep the payload and source position where the source cannot be re-read or one record would block a stream,
+  redrive guarded by source version so old data never overwrites new, deletes kept as tombstones, the CDC traps that
+  bite in production, batch runs that can be rerun for any period, and backfills that run alongside live capture.
 - **Sensitive data handled for real** (both). Card data kept out of scope, keyed pseudonyms instead of
   brute-forceable hashes, access enforced in the engine rather than the BI tool, and an erasure job that reaches
   every layer, copy and backup window, with a suppression list so a replay cannot bring an erased person back.
@@ -51,14 +52,14 @@ gh skill install si1verwind17/data-engineering-skills
 
 - [`designing-data-platforms`](skills/designing-data-platforms/SKILL.md): designs or reviews an analytics data
   platform, from a reporting replica to a lakehouse: tier and per-layer tool choice, batch and CDC ingestion with
-  dead-letter handling, serving and reverse ETL, and PII, PCI or health data with erasure. Each design is one
+  bad-record handling, serving and reverse ETL, and PII, PCI or health data with erasure. Each design is one
   document under `docs/data-platform/` that opens with the decision and the architecture diagram, then the pipeline
   and the build steps, with the reasons after; an existing platform is recorded once in `docs/data-platform/current-platform.md`. When it is
   done, it offers to render the document as a page for reading — one section at a time, the architecture diagram
   linked to its components, the reasons collapsed by topic (`render.py` in the skill folder, Python 3, nothing to
   install).
 - [`building-data-pipelines`](skills/building-data-pipelines/SKILL.md): changes pipeline code and config in your
-  repo: ingestion jobs, CDC connectors, dead letters and redrive, deletes, reruns and backfills, reverse-ETL loads,
+  repo: ingestion jobs, CDC connectors, bad records, dead letters and redrive, deletes, reruns and backfills, reverse-ETL loads,
   pseudonyms and erasure jobs. It reads a design document when there is one, adds the checks that catch silent data
   loss, and hands over what it could not run. No documents.
 

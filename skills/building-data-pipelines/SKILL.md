@@ -32,14 +32,14 @@ request; never ask for a design document or write one.
 
    | Task touches | Read |
    |---|---|
-   | Batch ingestion, dead letters, redrive, deletes, reruns | [`ingestion.md`](ingestion.md) |
+   | Batch ingestion, bad records and dead letters, redrive, deletes, reruns | [`ingestion.md`](ingestion.md) |
    | Change data capture (Debezium, logical replication, change streams) | [`ingestion.md`](ingestion.md) + [`cdc.md`](cdc.md) |
    | PII, card or health data in pipelines; erasure | [`sensitive-data.md`](sensitive-data.md) |
    | Loading results back into an application database | [`reverse-etl.md`](reverse-etl.md) |
 
    Settle what is in and out of the change. A gap in the pipeline you are
-   changing that loses or duplicates data — source deletes not captured, no
-   dead-letter path — is part of the fix: build it and test it, don't defer
+   changing that loses or duplicates data — source deletes not captured, bad
+   records dropped silently — is part of the fix: build it and test it, don't defer
    it. When the repo cannot settle a
    decision the code depends on (the source cannot support CDC), state the
    limit and the options and ask once; for a change that needs a platform
@@ -67,12 +67,12 @@ Fresh.
 
 | Property | Meaning | How |
 |---|---|---|
-| Complete | nothing silently lost | **check:** the job reconciles its own counts — rows read = rows written + rows dead-lettered |
+| Complete | nothing silently lost | **check:** the job reconciles its own counts — rows read = rows written (+ rows dead-lettered, where there is a dead letter) |
 | Idempotent | a rerun or replay gives the same result | **by construction:** keyed MERGE / upsert, or overwrite of the run's period |
 | Ordered | an older version never overwrites a newer one | **by construction:** version guard on source position ([`ingestion.md`](ingestion.md)) |
 | Atomic | readers never see half a load | **by construction:** one transaction, staging + swap, or an as-of marker — for every table the pipeline builds, downstream ones included; `drop` + `create` in place fails it |
 | Deletes honoured | a deleted row stays deleted after a late update or replay | **by construction:** tombstones; **check:** this run's rows joined to the tombstones |
-| Failures visible | bad records don't pile up unseen | **check:** alert on new dead-letter rows, with a named owner |
+| Failures visible | bad records don't pile up unseen | **check:** alert on a failed run, or on new dead-letter rows, with a named owner |
 | Fresh | data arrives within the agreed time | **check:** last successful load time, or CDC slot lag, against the agreed limit |
 | Private | erased people stay erased; raw identifiers stay restricted | **by construction:** suppression list read by ingestion; **check:** once per erasure request |
 

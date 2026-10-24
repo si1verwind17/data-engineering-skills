@@ -1,7 +1,7 @@
 # Scenario 1: A poll job that duplicates on retry
 
-An hourly Airflow poll with a stored watermark and a copy-pasted manual twin: idempotent load, deletes, dead
-letters, reruns by period, and cheap checks.
+An hourly Airflow poll with a stored watermark and a copy-pasted manual twin: idempotent load, deletes, bad
+records failing the run, reruns by period, and cheap checks.
 
 **Fixture:** copy [`fixtures/building-data-pipelines/1-duplicating-poll/`](../../fixtures/building-data-pipelines/1-duplicating-poll/)
 to `<workdir>/repo`.
@@ -23,10 +23,12 @@ to `<workdir>/repo`.
    table rebuilt in full each run may be tested whole: the rebuild already reads it all).
 6. **Deletes captured**: source hard deletes become tombstones (or a key compare for the period records them),
    not left for later.
-7. **Dead letters**: rows that cannot load go to a dead-letter table keeping their source position, with an alert.
+7. **Bad records fail the run**: a row that cannot load fails the run, naming its key and the error, with an alert
+   on failure; no dead-letter table is added (the source table can be read again, so a rerun of the period
+   recovers the row once the cause is fixed).
 8. **Twin DAG safe**: the manual DAG calls the same task code as the scheduled one, and the two cannot write the same
    period at once (shared pool of one slot, a lock, or equivalent).
-9. **Complete**: the load reconciles rows read = rows written + rows dead-lettered, and fails or alerts otherwise.
+9. **Complete**: the load reconciles rows read = rows written, and fails or alerts otherwise.
 10. **Atomic core**: `core.orders` is no longer dropped and recreated in place; readers never see it missing or half
     built (merge, transaction, or build-and-swap).
 11. **Tests for failure paths**: pytest cases for a rerun of the same period and a replayed delete are added.

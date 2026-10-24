@@ -1,6 +1,6 @@
 # Scenario 2: Ingestion design
 
-Ingestion only: failure handling, dead letters and redrive, deletes, CDC traps, backfill, and staying in scope.
+Ingestion only: failure handling, bad records and dead letters, redrive, deletes, CDC traps, backfill, and staying in scope.
 
 **Fixture:** none; the run writes into an empty `<workdir>`.
 
@@ -28,8 +28,10 @@ Ingestion only: failure handling, dead letters and redrive, deletes, CDC traps, 
    delete capture beside it; the SaaS API re-reads its 30-day editable window each run.
 2. **CDC feasibility and slot placement**: where the replication slot lives (primary or a read replica, with the
    PostgreSQL version it needs) and what happens to it on failover or replica rebuild.
-3. **Dead-letter path in every pipeline**: each source's pipeline has a dead-letter table with an alert and an
-   owner, and the Pipeline diagram draws it.
+3. **Bad-record path per source**: `orders` (CDC, where one bad event would block the rest) has a dead-letter
+   table with an alert and an owner, drawn in the Pipeline diagram; the batch sources that can be read again
+   (document database, SaaS API window) fail the run on a bad record with an alert, or give a reason for a dead
+   letter (with a reject threshold). No source drops bad records silently.
 4. **Mechanisms named in one line**: redrive guarded by source position (not `updated_at` alone), deletes kept as
    tombstones (with why a hard delete would resurrect rows), WAL cap plus slot-lag alert.
 5. **Backfill named**: a backfill runs beside live CDC through the same version guard, not a separate bulk load.
@@ -40,7 +42,7 @@ Ingestion only: failure handling, dead letters and redrive, deletes, CDC traps, 
    or erasure procedure (the request is ingestion only).
 9. **Top of document**: opens with a plain-words Decision (what gets built, what does not), then the Architecture diagram — nothing (questions, tier essay, tables) before them.
 10. **Architecture rules**: the diagram reads left to right from sources to users; every data arrow points the way data moves and is labelled with the action; boxes give tool and role; boundaries show where things run, drawn only where the hosting is stated.
-11. **Pipeline**: a pipeline diagram of jobs and tables (jobs with how often they run, tables by layer, failures to a dead-letter table), or one sentence where a source's whole path is a single job the architecture already shows.
+11. **Pipeline**: a pipeline diagram of jobs and tables (jobs with how often they run, tables by layer, failures to a dead-letter table where a source has one), or one sentence where a source's whole path is a single job the architecture already shows.
 12. **Build steps**: numbered, design level (no code or commands), each saying what it delivers.
 13. **No process narration**: the document never describes how it was produced ("non-interactive", "this run", "taken as given") or mentions the skill or its files.
 14. **current-platform.md**: written in `<workdir>/docs/data-platform/current-platform.md` from the request's description, with the existing architecture and each component marked `told by you`; the design's Architecture marks the new or changed components on it.

@@ -21,14 +21,27 @@ Pick each source's method from what the source supports, and say why:
 
 ## Failure handling
 
-Every pipeline has a dead-letter path: records that cannot succeed go to a
-dead-letter table (drawn on dotted edges in the Pipeline diagram), with an
-alert on growth and a named owner. Name the mechanisms in one line each so a
-reviewer sees them handled; their settings belong in the build, not the
-design:
+Every source states what happens to a record that cannot succeed — never
+dropped silently — and picks one of two paths:
 
-- Transient failures retry with backoff; only poison records dead-letter,
-  each keeping payload, error and **source position**.
+- **Fail the run** — the default for a batch source that can be read again
+  (a table, files that stay in place, an API window still editable): the
+  run fails naming the bad keys and alerts, and a rerun of the period
+  recovers once the cause is fixed. A bad record there usually means a
+  contract change that should stop the load.
+- **Dead-letter table** (drawn on dotted edges in the Pipeline diagram),
+  with an alert on growth and a named owner — when the source cannot be
+  read again (a topic past retention, an expiring cursor, a push), when one
+  record would block everything behind it (a stream, CDC), or when a
+  high-volume load expects a few bad records; a batch dead letter comes
+  with a reject threshold that fails the run above it.
+
+Name the mechanisms in one line each so a reviewer sees them handled; their
+settings belong in the build, not the design:
+
+- Transient failures retry with backoff; only poison records fail the run or
+  dead-letter, a dead-letter record keeping payload, error and **source
+  position**.
 - **Redrive guarded by source position, not `updated_at`** — timestamps tie
   and drift, so an old record could overwrite a newer one.
 - **Deletes kept as tombstones** in the cleaned layer — a hard delete lets a
@@ -36,5 +49,8 @@ design:
 - Batch runs take their period from the run, so any period can be rerun or
   backfilled.
 
-In a design review, a dead-letter record without the source position, a
-redrive on `updated_at` alone, or hard deletes in the cleaned layer are gaps.
+In a design review, a source with no stated bad-record path, a dead-letter
+record without the source position, a redrive on `updated_at` alone, or hard
+deletes in the cleaned layer are gaps. So is a dead letter on a re-readable
+batch source with no reason given: it adds a table, an alert, an owner and
+redrive code that a failed run and a rerun already cover.
