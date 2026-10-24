@@ -1,10 +1,19 @@
-# Data platform design — e-commerce analytics
+# E-commerce analytics platform — design
 
 ## Decision
 
-Build a small columnar warehouse (a database built for analytical queries) on AWS, fed by a nightly batch copy of the three PostgreSQL databases and the MongoDB database, plus a 15-minute load of the click events already sitting in the log bucket. Reporting is pointed at read replicas (copies of the production databases that serve only reads) first, so the production slowdown stops within days. A lakehouse (open table files on object storage, queried by several engines) with Spark, Flink and Kafka is deliberately not built: nothing the three consumers need today requires it, and a two-person team would spend its time operating it instead of delivering dashboards.
+Build a managed columnar warehouse on AWS (Amazon Redshift Serverless) fed by
+batch extracts, transformed with dbt, shown in Metabase, and orchestrated by
+managed Airflow. Day one starts with read replicas of the three PostgreSQL
+databases, so reporting stops slowing production. The funnel dashboard
+refreshes every 15 minutes. Deliberately not built: Kafka, Flink, Spark, or a
+lakehouse (open table format on object storage, queried by several engines) —
+each solves a problem this company has not yet shown, and the three together
+are more than two engineers can run.
 
-This rests on three assumptions: managed AWS services are acceptable to pay for, the two engineers have only part of their time for the platform, and "real-time" for the funnel dashboard means data no more than 15 minutes old (see Questions and assumptions).
+This rests on assumptions (see Questions and assumptions): managed services are
+acceptable, the two engineers share operation part-time, "real-time" means
+about 15 minutes, and the sources hold personal data but no card numbers.
 
 ## Architecture
 
@@ -16,48 +25,43 @@ config:
 flowchart LR
   subgraph existing[Existing systems]
     pg[("3 service databases<br/><i>PostgreSQL</i>")]
-    mongo[("Product database<br/><i>MongoDB</i>")]
-    logs[("Click event log bucket<br/><i>S3</i>")]
+    mongo[("Product/catalog data<br/><i>MongoDB</i>")]
+    logs[("Click-event log bucket<br/><i>S3</i>")]
   end
+  rep[("Read replicas, one per database<br/><i>PostgreSQL</i>")]
   subgraph aws[AWS account · managed services]
-    rep[("Read replicas<br/><i>PostgreSQL</i>")]
-    sched["Airflow<br/><i>Scheduler</i>"]
-    extract["Extract jobs<br/><i>dlt on ECS Fargate</i>"]
-    land[("Landing bucket<br/><i>S3 Parquet</i>")]
-    evload["Event load job<br/><i>COPY every 15 min</i>"]
+    sched["Managed Airflow<br/><i>Scheduler</i>"]
+    pgjob["Table extract jobs<br/><i>Python</i>"]
+    mjob["Mongo extract job<br/><i>Python</i>"]
+    cjob["Click load job<br/><i>Python</i>"]
+    land[("Landing area<br/><i>S3, Parquet</i>")]
     wh[("Warehouse<br/><i>Redshift Serverless</i>")]
     dbt["dbt<br/><i>Transform</i>"]
     bi["Metabase<br/><i>Dashboards</i>"]
   end
   user((Business user))
-  pg -- replicate --> rep
-  rep -- extract --> extract
-  mongo -- extract from secondary --> extract
-  extract -- write --> land
-  land -- load --> wh
-  logs -- read --> evload
-  evload -- load --> wh
-  wh -- query --> bi
-  bi -- dashboards --> user
-  rep -- reports --> bi
-  sched -. runs .-> extract
-  sched -. runs .-> evload
+  pg -- replicate --> rep -- extract --> pgjob -- write --> land
+  mongo -- extract --> mjob -- write --> land
+  logs -- read --> cjob -- write --> land
+  land -- load --> wh -- query --> bi -- dashboards --> user
+  sched -. runs .-> pgjob
+  sched -. runs .-> mjob
+  sched -. runs .-> cjob
   sched -. runs .-> dbt
   dbt -. runs .-> wh
-  classDef new stroke-width:3px
-  class rep,sched,extract,land,evload,wh,dbt,bi new
 ```
 
 | Component | What it does | Tool |
 |---|---|---|
-| Read replicas | Serve reporting reads so production databases are left alone; also the clean source for extraction | PostgreSQL read replicas (one per service database) |
-| Extract jobs | Copy new and changed rows nightly, compare keys to catch deletes, write Parquet files | dlt (Python) on ECS Fargate |
-| Landing bucket | Keeps every extracted file, so any load can be replayed | S3 |
-| Event load job | Loads new click-event files from the log bucket every 15 minutes, drops duplicate events, routes unreadable lines to a dead-letter table | Redshift `COPY` run by Airflow |
-| Warehouse | Stores raw, cleaned and business tables | Redshift Serverless |
-| Transform | Builds cleaned tables and the revenue and funnel models, with tests | dbt (SQL) |
-| Orchestration | Schedules, retries and alerts on every job | Airflow (managed, Amazon MWAA) |
-| BI | Dashboards for finance, ops and product | Metabase |
+| Read replicas | A continuously updated read-only copy of each PostgreSQL database; all extraction and any ad-hoc reporting reads it, never the primary | Replica of the existing managed PostgreSQL (assumes RDS or Aurora) |
+| Table extract jobs | Copy changed rows from each replica to files | Python, run by Airflow |
+| Mongo extract job | Reads from a secondary node and copies collections to files | Python, run by Airflow |
+| Click load job | Validates click-event files already in the log bucket and writes clean Parquet; bad events go to a dead-letter location | Python, run by Airflow |
+| Landing area | Immutable raw copy of everything extracted, partitioned by load date; makes any period replayable | S3 (Parquet) |
+| Warehouse | Raw, cleaned and business tables; the only place analysts and BI query | Redshift Serverless |
+| Transform | SQL models building cleaned and business tables, with tests | dbt |
+| Orchestration | Schedules extracts, loads and dbt; alerts on failure | Managed Airflow (MWAA) |
+| BI | Dashboards for finance, ops and product | Metabase (open source) |
 
 ## Pipeline
 
@@ -68,124 +72,220 @@ config:
 ---
 flowchart LR
   subgraph sources[Sources]
-    s1[("orders, payments, customers<br/><i>PostgreSQL replicas</i>")]
-    s2[("catalog documents<br/><i>MongoDB secondary</i>")]
-    s3[("click events<br/><i>S3 log files</i>")]
+    s1[("orders, payments, customers…<br/><i>PostgreSQL replicas</i>")]
+    s2[("collections<br/><i>MongoDB secondary</i>")]
+    s3[("click files<br/><i>S3 log bucket</i>")]
   end
   subgraph extract[Extract]
-    j1(["Incremental pull + key compare<br/><i>nightly</i>"])
-    j2(["Snapshot pull<br/><i>nightly</i>"])
-    j3(["Event load<br/><i>every 15 min</i>"])
+    e1(["Poll + key compare<br/><i>hourly</i>"])
+    e2(["Collection export<br/><i>daily</i>"])
+    e3(["Click validate + load<br/><i>every 15 min</i>"])
   end
   subgraph raw[Raw tables]
     r1[("raw.pg_*")]
     r2[("raw.mongo_*")]
     r3[("raw.click_events")]
+    dl[("dead_letter.click_events")]
   end
   subgraph transform[Transform]
-    t1(["dbt staging + models<br/><i>nightly</i>"])
+    t1(["dbt core models<br/><i>hourly</i>"])
     t2(["dbt funnel models<br/><i>every 15 min</i>"])
   end
   subgraph target[Target tables]
-    c1[("core.orders, core.payments<br/><i>with deleted flag</i>")]
-    c2[("mart.daily_revenue")]
-    c3[("mart.funnel")]
+    c1[("core.orders, core.customers")]
+    m1[("marts.daily_revenue")]
+    m2[("marts.funnel_sessions")]
   end
-  dl[("dead_letter<br/><i>payload, error, source position</i>")]
-  s1 --> j1 --> r1 --> t1 --> c1 --> c2
-  s2 --> j2 --> r2 --> t1
-  s3 --> j3 --> r3 --> t2 --> c3
-  c2 --> user((Business user))
-  c3 --> user
-  j1 -.-> dl
-  j2 -.-> dl
-  j3 -.-> dl
+  s1 --> e1 --> r1 --> t1 --> c1 --> m1
+  s2 --> e2 --> r2 --> t1
+  s3 --> e3 --> r3 --> t2 --> m2
+  c1 --> t2
+  e3 -. bad events .-> dl
+  m1 --> user((Business user))
+  m2 --> user
 ```
+
+Finance's revenue mart is rebuilt from `core.orders` after the hourly run and
+is final each morning. The funnel mart reprocesses a trailing window (the last
+two days, so late and out-of-order events land correctly) every 15 minutes.
 
 ## Build steps
 
-1. **Read replicas and Metabase on them.** Create a read replica for each PostgreSQL database and point reporting queries at them through Metabase. Delivers: reporting no longer slows production, and ops gets its first usable reports.
-2. **Warehouse, nightly Postgres extract, revenue models, finance dashboard.** Stand up Redshift Serverless, Airflow, the extract jobs for orders, payments and customers, and the dbt revenue models with tests (totals reconcile to the source). Delivers: finance's daily revenue dashboard, ready each morning.
-3. **Click-event load and funnel dashboard.** Load the log-bucket files every 15 minutes, deduplicate on event id, build the funnel model. Delivers: product's near-real-time funnel dashboard.
-4. **MongoDB snapshot, remaining tables, alerting.** Add the MongoDB copy, the remaining Postgres tables, dead-letter growth alerts and freshness checks. Delivers: one place to join orders, catalog and clicks, with someone paged when a load goes stale.
-5. **Review against the move-up triggers** (Why → Tier) after a quarter of real use. Delivers: a decision from evidence on whether anything heavier is needed.
+1. **Read replicas and a reporting login** — delivers: ops' reporting queries
+   run against replicas and stop slowing production, within days, before any
+   pipeline exists.
+2. **Warehouse, landing area, Airflow, and the PostgreSQL extract with dbt
+   core models** — delivers: orders, payments and customers from all three
+   databases in one place, loaded hourly, with tests that fail loudly.
+3. **Daily revenue mart and Metabase** — delivers: finance's daily revenue
+   dashboard, one agreed revenue definition, and the first thing the CTO and
+   finance can see.
+4. **Click load job and the funnel mart** — delivers: product's funnel
+   dashboard, refreshed every 15 minutes, with a bad-event dead-letter table
+   and alert.
+5. **MongoDB export** — delivers: its collections joined into the core
+   models (placed here because what it holds, and so who waits for it, is
+   still to be confirmed; move it earlier if finance's revenue needs it).
+6. **Access controls and the restricted customer table** — delivers: analysts
+   and dashboards see only the personal data they need. Parts of this ship with
+   steps 2–4 (no raw contact fields loaded from the start); this step closes
+   the remaining gaps and reviews who has direct SQL access.
+7. **Review at three months** — delivers: a decision, from measured cost and
+   freshness, on whether any trigger for the next tier has appeared.
 
 ## Why
 
 ### Tier
 
-The ladder is: replica, Postgres warehouse, columnar warehouse, lakehouse. Move up only on an observed symptom.
+Tier 0, a read replica alone, fixes production slowdown but cannot join three
+databases, MongoDB and click events, or keep history the sources drop. It is
+built as step 1 and kept as the extraction source.
 
-- **Replica alone (tier 0)** fixes the production slowdown, which is why it is step 1. It cannot join the three databases, MongoDB and clicks, and it keeps no history, so it cannot be the whole answer.
-- **A single Postgres warehouse (tier 1) was weighed and rejected for the event data.** The current click volume, 5M events a day (about 1.8 billion rows a year), is observed today, not projected. Funnel queries scanning that in Postgres, refreshed every 15 minutes, would recompute large materialized views repeatedly. A columnar warehouse stores and scans it far more cheaply. Because the sources (about 230 GB, growing roughly 10% a year) are modest, one warehouse is enough.
-- **A lakehouse (tier 3) is not built.** Its trigger is several engines needing to share the same data, or warehouse cost outgrowing object storage plus compute. Neither is observed. The CTO's stack is deferred, not dismissed:
-  - **Kafka** when more than one consumer needs the events, or a source must be streamed.
-  - **Flink** when a consumer proves it needs freshness under a minute. Today the stated need is 15 minutes, which a batch load meets.
-  - **Spark** when a transformation cannot be written in SQL.
-  - **Iceberg and an open lakehouse** when a second query engine must read the same tables, or the warehouse bill outgrows object storage.
+Tier 1, a Postgres warehouse, was weighed seriously: 230 GB growing 10% a year
+would fit. It is rejected on the load known today: 5M click events a day is
+about 1.8 billion rows a year (about 58 a second on average, higher at peak),
+which a row-store Postgres must scan in full for funnel reports. A 15-minute
+funnel refresh recomputes sessionised aggregates that Postgres materialized
+views rebuild from scratch each time, on a single node that would also hold
+finance's data. The click files are already in S3, which loads natively into a
+columnar warehouse. A columnar warehouse (tier 2) is the lowest tier that
+fits.
 
-  The landing bucket keeps all raw files, so moving to a lakehouse later reuses them.
+Tier 3, a lakehouse, is rejected: there is no second engine that needs to read
+the same data, no machine-learning workload on raw events, no sub-minute
+processing requirement, and no observed warehouse-cost problem. Moving up
+should follow one of these symptoms, not projected size: (a) several engines
+must share the data, (b) raw event volume or warehouse cost outgrows what the
+warehouse justifies, (c) a stated need for sub-minute stateful stream
+processing. Because the landing area is already open-format Parquet on S3, a
+later move up reuses it.
+
+Kafka, Flink and Spark are not needed at this scale: 58 events a second is
+trivial for a batch load every 15 minutes, dbt's SQL covers every
+transformation listed, and each of the three is a system a two-person team
+would own on call.
 
 ### Layer table
 
 | Layer | Default | Alternative | Switch when |
 |---|---|---|---|
-| Warehouse | Redshift Serverless | ClickHouse Cloud | Warehouse cost grows faster than usage, or event queries need sub-second answers |
-| Ingestion (databases) | Batch poll via dlt on Fargate | Debezium CDC (change data capture: reading the database's change log) | A consumer needs database data fresher than daily, or hard deletes cannot be caught by key compare |
-| Ingestion (events) | 15-minute `COPY` from the log bucket | Kinesis + Flink | Funnel freshness under a minute is proven to be needed |
-| Orchestration | Airflow, managed (MWAA) | cron / CI running dbt | Nobody on the team has time to own Airflow DAGs |
+| Warehouse | Redshift Serverless (same AWS account as the click bucket, no new vendor) | Snowflake or BigQuery | The team already knows one of them, or finance's tools integrate with one; or cost per query proves higher than a fixed cluster |
+| Landing / raw storage | S3 Parquet | — | — |
+| Ingestion (Postgres) | Hourly batch poll from replicas on a change timestamp + key compare | Debezium CDC | Freshness need drops below the hour, or a table hard-deletes and the compare is too slow; slot goes on the replica (see CDC note below) |
+| Orchestration | Managed Airflow (MWAA) | Cron / CI running dbt | If MWAA cost looks high for the job count and no one wants to own DAGs |
 | Transform | dbt (SQL) | Spark | Logic SQL cannot express |
-| BI | Metabase | Superset | Row-level filtering by group is needed on a free tool |
-| Table format | None yet (warehouse tables) | Iceberg, v2 | A second engine must read the same tables; use v2 unless every engine supports v3 |
+| BI | Metabase | Superset | Per-group row filtering on a free tool, or advanced visualization is needed |
+| Table format | None (warehouse tables) | Iceberg v2 | Tier 3 triggers above; v2 unless every reading engine supports v3 |
+| Click streaming | 15-minute batch | Kinesis + Redshift streaming ingestion | Product states a freshness under about 5 minutes — still no Kafka or Flink |
+
+CDC note: if Debezium is adopted later, a replication slot is a server-side
+bookmark; on a pre-17 primary it does not survive failover, so put the slot on
+a PostgreSQL 16+ read replica (not an Aurora reader — there the slot goes on
+the writer), cap WAL with a slot-lag alert, add a heartbeat on quiet tables,
+and keep a backfill running through the same version guard.
 
 ### Verification
 
-Confirm before building:
+Confirm before building (vendor docs):
 
-- **Replica version and settings.** Check the PostgreSQL version and the replica's query-conflict and lag settings; long extract queries on a replica can be cancelled by replication. Check the RDS or Aurora docs for replica behavior.
-- **Redshift Serverless `COPY` from S3** accepts the log files' format (compression, JSON or CSV, schema evolution). Check the Redshift `COPY` doc page against a sample file.
-- **Redshift read access** from the Metabase version chosen: check the Metabase driver doc.
-- **MWAA's Airflow version** supports the dlt and dbt versions picked: check the MWAA version and the dbt-redshift adapter docs.
-- **MongoDB:** the deployment is a replica set with a readable secondary, and the oplog (its change journal) is sized for any later move to change streams. Check the MongoDB docs for the deployment type.
-- **Change timestamps:** each large Postgres table has a reliably maintained `updated_at`. This is checked per table in step 2 (open question 1).
+- The Redshift Serverless version and the S3 Parquet COPY behaviour for the
+  partition layout and column types used (nested JSON in click events: native
+  `SUPER` type versus flattening).
+- Read-replica support and cross-version limits for the exact RDS/Aurora
+  engine versions in use; max standby delay settings so long extracts do not
+  get cancelled by replication conflicts (`max_standby_streaming_delay`).
+- That Redshift's column-level grants and dynamic data masking cover the
+  access paths chosen (Metabase service accounts and direct SQL).
+- Metabase open-source limits: no row/column security or per-user
+  impersonation, so group isolation is done by separate database connections
+  with scoped warehouse users.
+- Whether the MongoDB deployment allows reads from a secondary and its oplog
+  size, if change streams are ever adopted.
+- If Iceberg is adopted later: v2 vs v3 against every reading engine and the
+  catalog (Athena cannot read v3; Trino's v3 is experimental).
 
 ### Source inventory
 
-| Source | Method and why | Delete capture | Failure handling |
+| Source | Ingestion method | Delete capture | Failure handling |
 |---|---|---|---|
-| Three PostgreSQL databases (~200 GB) | Nightly poll on `updated_at` from the replica with a one-day overlap window for late commits. Finance needs daily; no consumer needs minutes, so CDC's slot management (a server-side bookmark) is avoided. Small tables are copied whole. | Nightly compare of source keys against stored keys; missing keys are marked deleted. Deletes stay as tombstones (a `deleted` flag) in cleaned tables, so a late or replayed update cannot revive the row. | Transient errors retry with backoff. Rows that cannot be loaded go to `dead_letter` with payload, error and source position (table, primary key, extract run). Replays are guarded by that source position, not by `updated_at`, whose ties and clock drift can let an old row overwrite a newer one. |
-| MongoDB (~30 GB) | Nightly snapshot of the needed collections from a secondary, so the primary is not loaded. At 30 GB a full copy is cheap. | The snapshot replaces the raw copy, so deleted documents disappear naturally; the cleaned layer keeps tombstones by comparing keys. | Same dead-letter rule; documents failing schema checks keep their `_id` and snapshot id as position. |
-| Click events (5M/day) | Files already land in the log bucket. Load new files every 15 minutes, tracking loaded file names, deduplicating on event id. | Not applicable (events are never edited or deleted). | Unreadable lines go to `dead_letter` with file key and line number as the position. Alert on growth; the data team owns triage. Late files are picked up on the next run because loading is by file, not by time. |
+| 3 PostgreSQL databases (orders, payments, customers, etc.) | Hourly poll on `updated_at`, read from the replica; any table lacking a reliable change timestamp is re-read in full (230 GB total, small tables cheap). Freshness allows polling; CDC not needed for daily revenue | Tables that hard-delete: a periodic compare of source keys against stored keys marks missing ones deleted, kept as tombstones in the cleaned layer so a late update cannot resurrect them | Re-readable source: **fail the run**, naming the bad keys and alerting; a rerun of the period recovers once the cause is fixed. Transient errors retry with backoff. Periods come from the run, so any period can be rerun or backfilled |
+| MongoDB (~30 GB) | Daily full collection export from a secondary node, or poll on a modified timestamp where collections have one | The full export, compared with stored keys, shows missing documents; recorded as tombstones | Re-readable: fail the run and alert |
+| Click events (~5M/day, JSON files in S3) | Every 15 minutes, read new files from the bucket; files stay in place | Not applicable (append-only events) | At this volume a few malformed events are expected, so bad events go to a **dead-letter table** with payload, error and source position (file and offset), an alert on growth, and a named owner (the data team). A reject threshold fails the run if bad events exceed a set share. Redrive is guarded by source position, not event time |
 
-Every batch run takes its period from the scheduler, so any day can be rerun or backfilled without editing code.
+### Serving and model design
+
+- All consumers are dashboards over aggregates for a 150-person company, so
+  the warehouse serves them directly; no separate serving store and no reverse
+  ETL are needed. If an application later needs point lookups, that gets a
+  serving store (Postgres) — not the warehouse.
+- Layers: `raw` (as extracted) → `core` (cleaned, deduplicated, tombstoned,
+  typed) → `marts` (business-ready: daily revenue, funnel sessions).
+- Daily revenue: built from core orders and payments, net of refunds and
+  cancellations, in one timezone and currency agreed with finance; orders
+  edited after the fact make past days restate, so finance must say whether
+  days are frozen after a cutoff.
+- Funnel: sessionised in dbt incrementally over a trailing two-day window, so
+  late events fix their session without full rebuilds.
 
 ### Sensitive data
 
-The sources plainly hold personal data (customers, addresses, contacts, IP addresses in click events). Classification, per column group:
+Customer data (names, emails, phones, addresses) is plainly present in the
+service databases, and click events carry user and device identifiers and IP
+addresses. Decision per column class:
 
-| Data | Decision |
+| Column class | Decision |
 |---|---|
-| Customer name, email, phone, address | Not loaded: revenue and funnel need none of them. Customers are joined and counted by a **keyed pseudonym** (an identifier made with a secret key; a plain hash can be reversed by hashing every possible email or phone number). The key lives in a secrets manager. |
-| Country or region of customer | Derived from the address and loaded; the address itself is dropped. |
-| IP address, device id in clicks | IP not loaded; device id is pseudonymized with the key. |
-| Birth date, if present | Derived to an age band; source dropped. |
-| Card numbers | **Never loaded.** Keeping them out keeps the whole platform outside card-industry (PCI DSS) scope, which access control cannot do. If any source stores full card numbers, escalate it as a compliance issue. |
-| Order amounts, products, timestamps | Loaded; not personal on their own once the customer is pseudonymized. |
+| Card numbers / payment instrument details | Never loaded. Keeping them out keeps the platform outside PCI DSS scope. If a source stores full card numbers, escalate it as a compliance issue, not just a column to drop |
+| Customer name, address | Not loaded to general tables; loaded to one restricted table keyed by pseudonym, only if a use case (e.g. shipping analysis, support lookup) needs it |
+| Email, phone | Not needed for revenue or funnel; where needed only to join or count, a **keyed pseudonym** (HMAC with a secret key, never a plain hash, since hashes of phone numbers are reversed by trying every value). The key is fetched once per extract run from AWS Secrets Manager, so no per-row service call |
+| Customer ID, order ID | Kept as internal join keys |
+| Date of birth | Derived to age band, source dropped |
+| Click IP address | Not loaded raw; derive country/region at load, drop the IP |
+| Click user/device IDs | Kept as pseudonymous identifiers |
 
-Access paths are Metabase and direct warehouse SQL for the two engineers. Metabase queries through one service account, so its permissions protect only Metabase users; since PII is not loaded, the exposure is small. If a raw-value need appears later (for example, customer service), it goes in a separate restricted table keyed by the pseudonym.
+Access paths: Metabase (one warehouse service account per audience group), and
+direct SQL for the two data engineers and any analysts. Because Metabase open
+source cannot restrict rows or columns, and BI permissions never apply to
+direct SQL, the enforcement sits in the warehouse: Redshift column-level
+grants and dynamic data masking, with the restricted table accessible only to
+a named role. Finance dashboards read the `marts` schema only.
+
+Erasure is not designed here (no regulated data was named and none was
+asked); it is listed as an open question, since the raw landing area keeps
+earlier versions of every record.
 
 ## Questions and assumptions
 
-1. **Are you willing to pay for managed or commercial tools?** *Assumed: yes, managed AWS services (Redshift Serverless, MWAA, replicas) are acceptable.* If not, the fallback is self-hosted: cron-run dbt instead of MWAA, and a Postgres warehouse for the revenue models only.
-2. **Who operates the platform?** *Assumed: the two data engineers, part-time alongside other work, with no dedicated platform team.* This is why the design avoids Kafka, Flink and Spark clusters.
-3. **What freshness does each consumer need, in minutes?** *Assumed: finance — daily revenue complete by early morning (T-1); product funnel — 15 minutes; ops reporting — replica lag (seconds to minutes).* If product needs under a minute, the event path changes (Kinesis and Flink).
-4. **Is any regulated data in the sources (personal, card, health)?** *Assumed: personal data yes (customers, contacts, IP addresses); card numbers not stored in the databases; no health data.*
+1. **Willing to pay for managed or commercial tools?** Assumption: yes —
+   managed services (Redshift Serverless, managed Airflow); Metabase stays open
+   source. If no, drop to Postgres warehouse, cron-run dbt, self-hosted
+   Metabase.
+2. **Who operates the platform?** Assumption: the two data engineers, part-time
+   on operations, no dedicated platform team and no on-call rota. This is why
+   the design uses managed services and one small set of tools.
+3. **What freshness does each consumer need, in minutes?** Assumptions:
+   finance — final daily revenue by start of business, hourly refresh is fine;
+   ops — reporting on a replica, minutes of replica lag acceptable;
+   product's "real-time" funnel — 15 minutes. If product means under about 5
+   minutes, switch only the click path to Kinesis with Redshift streaming
+   ingestion.
+4. **Is regulated data in any source?** Assumption: personal data of customers
+   (names, contacts, addresses, behavioural identifiers) yes; card data no.
+   If the payments database holds full card numbers, that must be escalated
+   and kept out of the platform.
 
 ## Open questions
 
-1. Do the large Postgres tables have a reliably updated `updated_at` column? Tables without one need a full copy or CDC.
-2. Revenue definition for finance: gross or net of refunds, currency and time-zone handling, and which order states count. The dashboard cannot be signed off without it.
-3. Are hard deletes common in orders or payments? This sets how often the key compare must run.
-4. Is the budget for the warehouse and MWAA approved? A rough monthly cost estimate should be produced before step 2.
-5. Compliance owner: which privacy regulations apply, what the retention periods are, whether the agreement with AWS and the BI vendor covers personal data, and the **erasure** process (a request to delete a customer must reach the raw files, landing bucket, warehouse backups and exports). The pseudonym design keeps the raw personal data out, but a suppression list and an erasure procedure still need to be designed once the answer is known.
-6. Does any source store full card numbers? If yes, escalate before any extract is built.
+- For the owner: what does the MongoDB database hold, and does revenue depend
+  on it? (This moves build step 5.)
+- For the owner: are the service databases RDS or Aurora, and which engine
+  versions? (Affects replica setup and any future CDC.)
+- For the owner: do the PostgreSQL tables hard-delete rows, and do they carry a
+  reliable `updated_at`?
+- For finance: the revenue definition (refunds, cancellations, tax, shipping,
+  currency, timezone), and whether past days freeze after a cutoff.
+- For product: what refresh time does the funnel dashboard actually need?
+- For the compliance owner: which privacy regulations apply (e.g. GDPR), what
+  agreements exist with AWS and any BI/messaging vendor, what retention
+  periods apply, and how erasure requests are handled — the landing area and
+  warehouse would both need an erasure process.

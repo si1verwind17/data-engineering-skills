@@ -7,7 +7,7 @@ own `render.py`.
 | Folder | The request | What it shows |
 |---|---|---|
 | [`1-new-platform-aws`](1-new-platform-aws/) | analytics for an e-commerce company on AWS, two data engineers, a CTO keen on a lakehouse | a new platform: read replicas first, a warehouse over a lakehouse and why, one tool per layer, what to verify before building |
-| [`2-ingestion`](2-ingestion/) | ingestion for three sources after a retry duplicated orders | ingestion only: the current job recorded first, then CDC with a version guard, dead letters and redrive, deletes as tombstones |
+| [`2-ingestion`](2-ingestion/) | ingestion for three sources after a retry duplicated orders | ingestion only: the current job recorded first, then CDC with a version guard, dead letters only for the stream (the batch sources fail the run), deletes as tombstones |
 | [`3-change-to-a-lakehouse`](3-change-to-a-lakehouse/) | new needs on a running Iceberg lakehouse | a change on the recorded platform, new parts marked: reverse ETL into the app's database, loads visible whole, protected customer data |
 | [`4-sensitive-data-bigquery`](4-sensitive-data-bigquery/) | patient and card data entering BigQuery | per-column decisions, card numbers kept out, keyed pseudonyms, erasure through every layer |
 | [`5-existing-platform`](5-existing-platform/) | order status within 5 minutes, with only a repo path to go on | the platform read from the repo and recorded with the file each part came from, then the change drawn on it |
